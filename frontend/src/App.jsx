@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import Login from './Login';
 import { getCameras } from './api';
+import AnalyticsDashboard from './AnalyticsDashboard';
 
 // Fix for default marker icons not showing in React-Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -15,6 +16,7 @@ L.Icon.Default.mergeOptions({
 
 function App() {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [view, setView] = useState('map'); // 'map' or 'analytics'
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(
     JSON.parse(localStorage.getItem('user') || 'null')
@@ -95,6 +97,20 @@ function App() {
         </div>
         <div>
           <button
+            onClick={() => setView(view === 'map' ? 'analytics' : 'map')}
+            style={{
+              padding: '8px 16px',
+              background: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginRight: '10px',
+            }}
+          >
+            {view === 'map' ? '📊 Analytics' : '🗺️ Map'}
+          </button>
+          <button
             onClick={() => setShowAddForm(true)}
             style={{
               padding: '8px 16px',
@@ -124,28 +140,32 @@ function App() {
         </div>
       </div>
 
-      <MapContainer
-        center={defaultCenter}
-        zoom={12}
-        style={{ height: 'calc(100vh - 70px)', width: '100%' }}
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap contributors'
-        />
+      {view === 'map' ? (
+        <MapContainer
+          center={defaultCenter}
+          zoom={12}
+          style={{ height: 'calc(100vh - 70px)', width: '100%' }}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; OpenStreetMap contributors'
+          />
 
-        {cameras.map((camera) => (
-          <Marker key={camera.id} position={[camera.latitude, camera.longitude]}>
-            <Popup>
-              <strong>{camera.camera_code}</strong><br />
-              Department: {camera.department}<br />
-              Type: {camera.camera_type}<br />
-              Status: {camera.connectivity_status}<br />
-              Address: {camera.address}
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+          {cameras.map((camera) => (
+            <Marker key={camera.id} position={[camera.latitude, camera.longitude]}>
+              <Popup>
+                <strong>{camera.camera_code}</strong><br />
+                Department: {camera.department}<br />
+                Type: {camera.camera_type}<br />
+                Status: {camera.connectivity_status}<br />
+                Address: {camera.address}
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      ) : (
+        <AnalyticsDashboard token={token} scopeLabel={user.department || 'All Departments'} />
+      )}
 
       {showAddForm && (
         <AddCameraForm

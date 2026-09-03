@@ -83,5 +83,75 @@ app.post('/api/cameras', requireAuth, async (req, res) => {
 });
 
 
+// GET analytics summary — aggregated stats for the dashboard
+// Respects the same department isolation rule as GET /api/cameras
+app.get('/api/analytics/summary', requireAuth, async (req, res) => {
+  try {
+    let deptFilter = '';
+    let params = [];
+
+    if (req.user.role !== 'admin') {
+      deptFilter = ` WHERE department = (SELECT name FROM departments WHERE id = $1)`;
+      params.push(req.user.department_id);
+    }
+
+    const [
+      totalResult,
+      byDepartment,
+      byStatus,
+      byType,
+      byOwnership,
+      byStorage,
+      byMonth,
+      avgRetention,
+    ] = await Promise.all([
+      pool.query(`SELECT COUNT(*) FROM cameras${deptFilter}`, params),
+      pool.query(
+        `SELECT department, COUNT(*) AS count FROM cameras${deptFilter} GROUP BY department ORDER BY count DESC`,
+        params
+      ),
+      pool.query(
+        `SELECT connectivity_status, COUNT(*) AS count FROM cameras${deptFilter} GROUP BY connectivity_status ORDER BY count DESC`,
+        params
+      ),
+      pool.query(
+        `SELECT camera_type, COUNT(*) AS count FROM cameras${deptFilter} GROUP BY camera_type ORDER BY count DESC`,
+        params
+      ),
+      pool.query(
+        `SELECT ownership, COUNT(*) AS count FROM cameras${deptFilter} GROUP BY ownership ORDER BY count DESC`,
+        params
+      ),
+      pool.query(
+        `SELECT storage_type, COUNT(*) AS count FROM cameras${deptFilter} GROUP BY storage_type ORDER BY count DESC`,
+        params
+      ),
+      pool.query(
+        `SELECT TO_CHAR(installed_on, 'YYYY-MM') AS month, COUNT(*) AS count
+         FROM cameras${deptFilter}
+         GROUP BY month ORDER BY month ASC`,
+        params
+      ),
+      pool.query(`SELECT AVG(retention_days) AS avg_retention FROM cameras${deptFilter}`, params),
+    ]);
+
+    res.json({
+      total: parseInt(totalResult.rows[0].count, 10),
+      byDepartment: byDepartment.rows,
+      byConnectivityStatus: byStatus.rows,
+      byCameraType: byType.rows,
+      byOwnership: byOwnership.rows,
+      byStorageType: byStorage.rows,
+      installsByMonth: byMonth.rows,
+      avgRetentionDays: avgRetention.rows[0].avg_retention
+        ? Math.round(avgRetention.rows[0].avg_retention)
+        : 0,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

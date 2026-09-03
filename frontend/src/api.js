@@ -16,3 +16,9 @@ export const addCamera = (token, cameraData) => {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
+
+export const getAnalytics = (token) => {
+  return axios.get(`${API_URL}/analytics/summary`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
